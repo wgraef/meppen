@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Challenge: Dual Mode</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f4f8;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            text-align: center;
+        }
+
+        #setup-area { 
+            margin-bottom: 20px; 
+            padding: 20px; 
+            background: white; 
+            border-radius: 16px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            max-width: 450px;
+            transition: opacity 0.3s;
+        }
+
+        .mode-selector {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .display-container {
+            position: relative;
+            width: 350px;
+            height: 350px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        #display {
+            font-size: 70px;
+            font-weight: 800;
+            color: #2c3e50;
+            z-index: 2;
+        }
+
+        svg {
+            position: absolute;
+            transform: rotate(-90deg);
+            width: 320px;
+            height: 320px;
+        }
+
+        circle {
+            fill: none;
+            stroke-width: 10;
+            stroke-linecap: round;
+        }
+
+        .bg-circle { stroke: #e2e8f0; }
+        
+        #timer-circle {
+            stroke: #3498db;
+            stroke-dasharray: 942;
+            stroke-dashoffset: 0;
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin: 15px 0;
+        }
+
+        .checkbox-grid label {
+            background: #f1f5f9;
+            padding: 6px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        #action-btn {
+            padding: 18px 60px;
+            font-size: 24px;
+            font-weight: 600;
+            cursor: pointer;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            box-shadow: 0 4px #27ae60;
+            transition: all 0.1s;
+        }
+
+        #action-btn:active { transform: translateY(2px); box-shadow: 0 2px #27ae60; }
+        #action-btn:disabled { background-color: #cbd5e1; box-shadow: 0 4px #94a3b8; cursor: not-allowed; }
+        
+        .stats { margin-top: 10px; color: #64748b; font-size: 0.9rem; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <div id="setup-area">
+        <h3 style="margin:0 0 10px 0">Settings</h3>
+        
+        <div class="mode-selector">
+            <strong>Show:</strong>
+            <label style="margin-left: 10px; cursor: pointer;">
+                <input type="radio" name="displayMode" value="equation" checked> Equation (7 × 8)
+            </label>
+            <label style="margin-left: 10px; cursor: pointer;">
+                <input type="radio" name="displayMode" value="result"> Result (56)
+            </label>
+        </div>
+
+        <div class="checkbox-grid" id="table-selector"></div>
+        <div class="stats" id="counter-text">Ready to start?</div>
+    </div>
+
+    <div class="display-container">
+        <svg viewBox="0 0 320 320">
+            <circle class="bg-circle" cx="160" cy="160" r="150"></circle>
+            <circle id="timer-circle" cx="160" cy="160" r="150"></circle>
+        </svg>
+        <div id="display">Go!</div>
+    </div>
+
+    <button id="action-btn" onclick="handleButtonClick()">Start Session</button>
+
+    <script>
+        let questionPool = [];
+        let isActive = false;
+        const RADIUS = 150;
+        const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+        const selector = document.getElementById('table-selector');
+        for (let i = 2; i <= 12; i++) {
+            selector.innerHTML += `
+                <label>
+                    <input type="checkbox" class="table-check" value="${i}" checked> ${i}s
+                </label>`;
+        }
+
+        function preparePool() {
+            questionPool = [];
+            const selected = Array.from(document.querySelectorAll('.table-check:checked')).map(cb => parseInt(cb.value));
+            if (selected.length === 0) return alert("Please select at least one table!"), false;
+
+            selected.forEach(num => {
+                for (let i = 1; i <= 12; i++) {
+                    questionPool.push({a: num, b: i, res: num * i});
+                }
+            });
+
+            for (let i = questionPool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [questionPool[i], questionPool[j]] = [questionPool[j], questionPool[i]];
+            }
+            return true;
+        }
+
+        function handleButtonClick() {
+            const display = document.getElementById('display');
+            if (!isActive && questionPool.length === 0) {
+                if (!preparePool()) return;
+                isActive = true;
+                document.getElementById('setup-area').style.opacity = "0.4";
+                document.querySelectorAll('.table-check').forEach(cb => cb.disabled = true);
+                document.querySelectorAll('input[name="displayMode"]').forEach(rb => rb.disabled = true);
+            }
+            if (display.innerText === "Done!") {
+                resetUI();
+                return;
+            }
+            startTimer();
+        }
+
+        function startTimer() {
+            const btn = document.getElementById('action-btn');
+            const circle = document.getElementById('timer-circle');
+            const display = document.getElementById('display');
+            
+            btn.disabled = true;
+            display.innerText = "..."; 
+            
+            circle.style.transition = "none";
+            circle.style.strokeDashoffset = 0;
+            circle.style.stroke = "#3498db";
+
+            setTimeout(() => {
+                circle.style.transition = "stroke-dashoffset 5s linear";
+                circle.style.strokeDashoffset = CIRCUMFERENCE;
+            }, 50);
+
+            setTimeout(showNextQuestion, 5000);
+        }
+
+        function showNextQuestion() {
+            const display = document.getElementById('display');
+            const btn = document.getElementById('action-btn');
+            const counter = document.getElementById('counter-text');
+            const circle = document.getElementById('timer-circle');
+            const mode = document.querySelector('input[name="displayMode"]:checked').value;
+
+            if (questionPool.length > 0) {
+                const q = questionPool.pop();
+                
+                // Switch display based on mode
+                if (mode === "equation") {
+                    display.innerText = `${q.a} × ${q.b}`;
+                } else {
+                    display.innerText = q.res;
+                }
+                
+                display.style.color = "#2c3e50";
+                counter.innerText = `${questionPool.length} questions remaining`;
+                btn.innerText = (questionPool.length === 0) ? "Finish" : "Next Question";
+                btn.disabled = false;
+            } else {
+                display.innerText = "Done!";
+                display.style.color = "#27ae60";
+                circle.style.stroke = "#27ae60";
+                btn.innerText = "Restart";
+                btn.disabled = false;
+                counter.innerText = "Session Complete!";
+            }
+        }
+
+        function resetUI() {
+            isActive = false;
+            document.getElementById('setup-area').style.opacity = "1";
+            document.querySelectorAll('.table-check').forEach(cb => cb.disabled = false);
+            document.querySelectorAll('input[name="displayMode"]').forEach(rb => rb.disabled = false);
+            document.getElementById('display').innerText = "Go!";
+            document.getElementById('display').style.color = "#2c3e50";
+            document.getElementById('action-btn').innerText = "Start Session";
+            document.getElementById('counter-text').innerText = "Ready to start?";
+            document.getElementById('timer-circle').style.strokeDashoffset = 0;
+        }
+    </script>
+</body>
+</html>
